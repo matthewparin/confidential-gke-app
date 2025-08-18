@@ -44,7 +44,7 @@ A modern DevOps workflow enables a repeatable, auditable, and secure deployment 
 
 ## Key Features
 
-- **Confidential Computing**: This application workload runs on GKE nodes with hardware-level memory encryption, , ensuring data confidentiality during processing.
+- **Confidential Computing**: This application workload runs on GKE nodes with hardware-level memory encryption, ensuring data confidentiality during processing.
 - **Infrastructure as Code**: All cloud resources are defined declaratively in Terraform, providing an auditable and repeatable deployment process critical for compliant environments.
 - **Containerized Workload**: The application is packaged with Docker, ensuring consistency across development and production environments.
 - **Declarative Deployment**: Kubernetes manifests define the desired state of the application, leveraging the self-healing and scalable nature of the Google Cloud platform.
@@ -77,12 +77,12 @@ gcloud config set project "${PROJECT_ID}"
 
 # (One-time) Link billing & enable core APIs as needed
 # gcloud beta billing projects link "${PROJECT_ID}" --billing-account <BILLING_ACCOUNT_ID>
-gcloud services enable   compute.googleapis.com   container.googleapis.com   artifactregistry.googleapis.com
+gcloud services enable compute.googleapis.com container.googleapis.com artifactregistry.googleapis.com
 ```
 
 ### 3) Create Artifact Registry (if not already created)
 ```bash
-gcloud artifacts repositories create "${AR_REPO}"   --project="${PROJECT_ID}"   --repository-format=docker   --location="${REGION}"   --description="Private repo for confidential app images" || true
+gcloud artifacts repositories create "${AR_REPO}"   --project="${PROJECT_ID}"   --repository-format=docker   --location="${REGION}" --description="Private repo for confidential app images" || true
 ```
 
 ### 4) Build & Push the Container Image
@@ -94,7 +94,7 @@ docker build -t "${IMAGE_NAME}:${TAG}" .
 gcloud auth configure-docker "${REGION}-docker.pkg.dev"
 
 # Tag & push
-docker tag "${IMAGE_NAME}:${TAG}"   "${REGION}-docker.pkg.dev/${PROJECT_ID}/${AR_REPO}/${IMAGE_NAME}:${TAG}"
+docker tag "${IMAGE_NAME}:${TAG}" "${REGION}-docker.pkg.dev/${PROJECT_ID}/${AR_REPO}/${IMAGE_NAME}:${TAG}"
 
 docker push "${REGION}-docker.pkg.dev/${PROJECT_ID}/${AR_REPO}/${IMAGE_NAME}:${TAG}"
 ```
@@ -144,7 +144,7 @@ curl "http://${EXTERNAL_IP}"
 ### ErrImagePull / ImagePullBackOff
 1. **Verify the tag exists:**
    ```bash
-   gcloud artifacts docker images list      "${REGION}-docker.pkg.dev/${PROJECT_ID}/${AR_REPO}"      --format='table(NAME,TAGS)'
+   gcloud artifacts docker images list "${REGION}-docker.pkg.dev/${PROJECT_ID}/${AR_REPO}" --format='table(NAME,TAGS)'
    ```
 2. **Grant GKE nodes permission to pull from Artifact Registry:**
    ```bash
@@ -173,7 +173,7 @@ curl "http://${EXTERNAL_IP}"
 **Project Summary**  
 This project demonstrates deploying a containerized application onto GKE with **Confidential Computing** enabled. Using **Terraform**, **Docker**, and **Kubernetes**, it establishes a secure, repeatable, auditable workflow for sensitive workloads. The repository provides a practical foundation for leading discussions and initiatives focused on security and compliance—relevant to platforms such as **NVIDIA DGX Cloud**.
 
-**Curated Talking Points**
+**Curated FAQs**
 - **On Infrastructure as Code:**  
   “I built this on **Terraform** because regulated environments require **auditable, repeatable, version‑controlled** infrastructure. IaC moves security from checklists to automated controls.”
 - **On Confidential Computing:**  
