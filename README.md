@@ -114,7 +114,7 @@ cd ..
 gcloud container clusters get-credentials confidential-cluster --region "${REGION}" --project "${PROJECT_ID}"
 
 # Ensure your Kubernetes manifests reference the correct image path:
-#   ${REGION}-docker.pkg.dev/${PROJECT_ID}/${AR_REPO}/${IMAGE_NAME}:${TAG}
+# ${REGION}-docker.pkg.dev/${PROJECT_ID}/${AR_REPO}/${IMAGE_NAME}:${TAG}
 
 # Apply manifests
 kubectl apply -f ./kubernetes/deployment.yaml
