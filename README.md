@@ -10,16 +10,15 @@ Enterprises in regulated sectors (finance, healthcare, public sector) face hurdl
 
 **Confidential Computing** addresses this gap by using hardware-based **Trusted Execution Environments (TEEs)** to protect data during processing. This ensures sensitive information remains isolated from the cloud provider, privileged administrators, and other workloads.
 
-This project implements a solution using **Confidential GKE Nodes**, built on Google Cloud’s Confidential VMs (AMD SEV). It demonstrates a practical, hands‑on approach to building a trusted cloud environment for high‑value AI workloads—directly aligned to platforms like NVIDIA DGX Cloud.
+This project shows a walking skeleton running on **Confidential GKE Nodes**, built on Google Cloud’s Confidential VMs (AMD SEV). It demonstrates a practical, hands‑on approach to building a trusted cloud environment for high‑value AI workloads.
+
+Porting this project to NVIDIA DGX Cloud is achievable by using DGX GPU clusters and toggling on confidential compute mode, more details in [NVIDIA documentation](https://docs.nvidia.com/cc-deployment-guide-snp.pdf). In practice, this change makes is possible to run fine-tuning and inference inside the TEE, with checkpoints and outputs written to encrypted storage so plaintext data and models never leave the secure boundary.
 
 ---
 
 ## Architecture
 
 A modern DevOps workflow enables a repeatable, auditable, and secure deployment from local development to the cloud.
-
-![Architecture Diagram Placeholder](https://i.imgur.com/your-diagram-url.png)
-> Replace the placeholder with your actual architecture diagram (e.g., draw.io, Excalidraw, or Mermaid).
 
 **Components**
 - **Application**: Lightweight Python **Flask** service.
@@ -32,7 +31,7 @@ A modern DevOps workflow enables a repeatable, auditable, and secure deployment 
 
 ## Technology Stack
 
-| Technology                | Purpose                 | Justification |
+| Technology               | Purpose                 | Justification |
 |--------------------------|-------------------------|---------------|
 | Google Cloud (GCP)       | Cloud Provider          | Integrated Confidential Computing with Confidential GKE Nodes. |
 | Confidential GKE Nodes   | Secure Compute          | Hardware-level memory encryption (AMD SEV) to protect data in use. |
@@ -45,11 +44,11 @@ A modern DevOps workflow enables a repeatable, auditable, and secure deployment 
 
 ## Key Features
 
-- **Confidential Computing**: Workloads run on GKE nodes with hardware-level memory encryption, protecting data during processing.
-- **Infrastructure as Code**: All cloud resources are defined in Terraform for auditability and repeatability.
-- **Containerized Workload**: Docker ensures consistent builds and predictable runtime behavior.
-- **Declarative Deployment**: Kubernetes manifests define desired state with self-healing and scaling.
-- **Security Best Practices**: Shielded Nodes enabled; resources run in a dedicated VPC for isolation.
+- **Confidential Computing**: This application workload runs on GKE nodes with hardware-level memory encryption, , ensuring data confidentiality during processing.
+- **Infrastructure as Code**: All cloud resources are defined declaratively in Terraform, providing an auditable and repeatable deployment process critical for compliant environments.
+- **Containerized Workload**: The application is packaged with Docker, ensuring consistency across development and production environments.
+- **Declarative Deployment**: Kubernetes manifests define the desired state of the application, leveraging the self-healing and scalable nature of the Google Cloud platform.
+- **Security Best Practices**: The Google Kubernetes Engine (GKE) cluster is provisioned with Shielded Nodes enabled and runs within a dedicated VPC for network isolation.
 
 ---
 
@@ -61,8 +60,7 @@ A modern DevOps workflow enables a repeatable, auditable, and secure deployment 
 
 ### 1) Clone the Repository
 ```bash
-# Replace <your-repo-url> with your GitHub repo URL
-git clone <your-repo-url>
+git clone
 cd confidential-gke-app
 ```
 
@@ -170,29 +168,7 @@ curl "http://${EXTERNAL_IP}"
 
 ---
 
-## Publishing the Project to GitHub
-
-1. **Create a New Repository on GitHub**
-   - Go to GitHub → **New repository** → Name it (e.g., `confidential-gke-demo`) → Public → Create.
-
-2. **Link the Local Repository**
-   ```bash
-   # From the project root (confidential-gke-app/)
-   git init
-   git remote add origin https://github.com/<your-user>/<your-repo>.git
-   ```
-
-3. **Commit and Push**
-   ```bash
-   git add .
-   git commit -m "Initial commit: Confidential GKE application and infrastructure"
-   git branch -M main
-   git push -u origin main
-   ```
-
----
-
-## Conclusion & Executive Talking Points
+## Conclusion
 
 **Project Summary**  
 This project demonstrates deploying a containerized application onto GKE with **Confidential Computing** enabled. Using **Terraform**, **Docker**, and **Kubernetes**, it establishes a secure, repeatable, auditable workflow for sensitive workloads. The repository provides a practical foundation for leading discussions and initiatives focused on security and compliance—relevant to platforms such as **NVIDIA DGX Cloud**.
@@ -212,8 +188,6 @@ This project demonstrates deploying a containerized application onto GKE with **
 ---
 
 ## Notes
-
-- Replace the architecture diagram link with your final diagram.
 - Ensure `deployment.yaml` references:  
   `${REGION}-docker.pkg.dev/${PROJECT_ID}/${AR_REPO}/${IMAGE_NAME}:${TAG}`
 - Consider adding CI/CD (GitHub Actions or Cloud Build) to automate build, scan, and deploy.
