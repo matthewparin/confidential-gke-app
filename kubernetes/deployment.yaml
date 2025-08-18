@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: confidential-app-deployment
+  labels:
+    app: confidential-app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: confidential-app
+  template:
+    metadata:
+      labels:
+        app: confidential-app
+    spec:
+      containers:
+      - name: confidential-app-container
+        # IMPORTANT: Replace <PROJECT_ID> with your actual GCP Project ID.
+        # This must be done manually or via a script in a real CI/CD pipeline.
+        image: us-central1-docker.pkg.dev/cc-demo-1755288433-mwp/confidential-repo/confidential-app:v1
+        ports:
+        - containerPort: 5000

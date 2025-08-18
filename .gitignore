@@ -1,0 +1,38 @@
+# OS
+.DS_Store
+
+# Secrets
+.env
+*.key
+*.pem
+*.p12
+*.crt
+*.creds
+# Docker
+*.tar
+# Kubernetes
+*.kubeconfig
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+pip-wheel-metadata/
+*.egg-info/
+# Terraform
+.terraform/
+*.tfstate
+.tfstate.
+crash.log
+*.tfvars
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+# macOS
+.DS_Store
