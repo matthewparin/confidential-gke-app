@@ -43,8 +43,6 @@ resource "google_container_cluster" "primary" {
   # Enable security best practices
   enable_shielded_nodes = true
 
-  # The 'confidential_nodes' block is removed from the cluster level
-  # to prevent the temporary default node pool from failing creation.
 }
 
 # Define the custom, confidential node pool for the cluster
@@ -65,8 +63,8 @@ resource "google_container_node_pool" "primary_nodes" {
       "https://www.googleapis.com/auth/cloud-platform"
     ]
 
-    # The confidential_nodes block is now defined here, at the node pool level.
-    # This is the key change to fix the deployment error.
+    # The confidential_nodes block is defined here, at the node pool level.
+    # This is the key change from earlier iterations, to fix the deployment error.
     confidential_nodes {
       enabled = true
     }
