@@ -109,16 +109,26 @@ cd ..
 ```
 
 ### 6) Deploy the Application to GKE
+
+#### Option A: Automated Deployment (Recommended)
+```bash
+# Run the setup script to configure GKE and service accounts
+./scripts/setup-gke.sh
+
+# Deploy the application
+./scripts/deploy.sh
+```
+
+#### Option B: Manual Deployment
 ```bash
 # Configure kubectl against your cluster
 gcloud container clusters get-credentials confidential-cluster --region "${REGION}" --project "${PROJECT_ID}"
 
-# Ensure your Kubernetes manifests reference the correct image path:
-# ${REGION}-docker.pkg.dev/${PROJECT_ID}/${AR_REPO}/${IMAGE_NAME}:${TAG}
+# Apply service account and RBAC
+kubectl apply -f ./kubernetes/service-account.yaml
 
 # Apply manifests
-kubectl apply -f ./kubernetes/deployment.yaml
-kubectl apply -f ./kubernetes/service.yaml
+kubectl apply -f ./kubernetes/
 ```
 
 ### 7) Access the Application
@@ -146,7 +156,13 @@ curl "http://${EXTERNAL_IP}"
    ```bash
    gcloud artifacts docker images list "${REGION}-docker.pkg.dev/${PROJECT_ID}/${AR_REPO}" --format='table(NAME,TAGS)'
    ```
-2. **Grant GKE nodes permission to pull from Artifact Registry:**
+2. **Check service account configuration:**
+   ```bash
+   # Verify the service account exists and has proper permissions
+   kubectl get serviceaccount confidential-app-sa
+   kubectl describe serviceaccount confidential-app-sa
+   ```
+3. **Grant GKE nodes permission to pull from Artifact Registry:**
    ```bash
    PROJECT_NUMBER="$(gcloud projects describe "${PROJECT_ID}" --format='value(projectNumber)')"
 
@@ -155,7 +171,7 @@ curl "http://${EXTERNAL_IP}"
    ```
    > If your cluster uses a **custom node service account**, grant the same role to that account instead.
 
-3. **Force a new pull after fixing IAM/tag:**
+4. **Force a new pull after fixing IAM/tag:**
    ```bash
    kubectl rollout restart deployment confidential-app-deployment
    ```
