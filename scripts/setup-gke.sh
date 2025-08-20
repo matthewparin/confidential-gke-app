@@ -17,16 +17,75 @@ else
     echo "✅ Using existing project ID: $PROJECT_ID"
 fi
 
+# Validate project ID format
+if ! validate_project_id "$PROJECT_ID"; then
+    echo "❌ Invalid project ID format: $PROJECT_ID"
+    echo "💡 Project ID must follow GCP naming rules:"
+    echo "   - 6-30 characters"
+    echo "   - Lowercase letters, numbers, and hyphens only"
+    echo "   - Must start with a letter"
+    echo "   - Cannot end with a hyphen"
+    echo "   - Cannot contain consecutive hyphens"
+    echo ""
+    echo "🔄 Generating a new valid project ID..."
+    NEW_PROJECT_ID=$(generate_project_id)
+    echo "$NEW_PROJECT_ID" > "$CONFIG_FILE"
+    PROJECT_ID="$NEW_PROJECT_ID"
+    echo "✅ New project ID: $PROJECT_ID"
+fi
+
 # Step 1: Check if project exists, create if needed
 echo ""
 echo -e "${CYAN}📋 Step 1: Checking/Creating GCP Project${NC}"
 if ! gcloud projects describe "$PROJECT_ID" >/dev/null 2>&1; then
     echo "🏗️  Creating new GCP project: $PROJECT_ID"
-    if gcloud projects create "$PROJECT_ID" --name="GKE Demo Project" --set-as-default; then
-        echo "✅ Project created successfully"
+    
+    # Check if user has project creation permissions
+    echo "🔍 Checking project creation permissions..."
+    if ! gcloud projects list --filter="projectId:$PROJECT_ID" --limit=1 >/dev/null 2>&1; then
+        echo "⚠️  Checking if you have project creation permissions..."
+        
+        # Try to create the project
+        if gcloud projects create "$PROJECT_ID" --name="GKE Demo Project" --set-as-default; then
+            echo "✅ Project created successfully"
+        else
+            echo "❌ Failed to create project: $PROJECT_ID"
+            echo ""
+            echo "🔧 Troubleshooting steps:"
+            echo "1. Check if you have the 'Project Creator' role in your organization"
+            echo "2. Verify the project ID is globally unique"
+            echo "3. Ensure you're authenticated with the correct account"
+            echo ""
+            echo "💡 Alternative solutions:"
+            echo "• Use an existing project ID instead"
+            echo "• Ask your GCP admin to create the project for you"
+            echo "• Use a different project ID format"
+            echo ""
+            echo "Current account: $(gcloud config get-value account)"
+            echo "Current organization: $(gcloud organizations list --format='value(displayName)' 2>/dev/null || echo 'Not set')"
+            echo ""
+            read -p "Would you like to try with a different project ID? (y/n): " retry_choice
+            if [[ $retry_choice =~ ^[Yy]$ ]]; then
+                # Generate a new project ID and try again
+                NEW_PROJECT_ID=$(generate_project_id)
+                echo "🔄 Trying with new project ID: $NEW_PROJECT_ID"
+                echo "$NEW_PROJECT_ID" > "$CONFIG_FILE"
+                PROJECT_ID="$NEW_PROJECT_ID"
+                
+                if gcloud projects create "$PROJECT_ID" --name="GKE Demo Project" --set-as-default; then
+                    echo "✅ Project created successfully with new ID"
+                else
+                    echo "❌ Still unable to create project. Please use an existing project ID."
+                    echo "💡 Run: rm .project-config && ./scripts/setup-gke.sh"
+                    exit 1
+                fi
+            else
+                echo "💡 Please use an existing project ID or contact your GCP administrator."
+                exit 1
+            fi
+        fi
     else
-        echo "❌ Failed to create project. Please check your permissions."
-        exit 1
+        echo "✅ Project $PROJECT_ID already exists"
     fi
 else
     echo "✅ Project $PROJECT_ID already exists"

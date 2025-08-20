@@ -169,9 +169,25 @@ gcloud auth application-default login
 
 #### Project Creation Issues
 If project creation fails:
-- Ensure you have the necessary permissions in your GCP organization
-- Check if the project ID is globally unique
-- Verify billing is enabled for your account
+- **Permissions**: Ensure you have the 'Project Creator' role in your GCP organization
+- **Unique ID**: Project ID must be globally unique across all GCP projects
+- **Format**: Project ID must follow GCP naming rules (6-30 chars, lowercase, no consecutive hyphens)
+- **Billing**: Verify billing is enabled for your account
+- **Organization**: Check if you're in the correct GCP organization
+
+**Common solutions:**
+```bash
+# Check your current account and organization
+gcloud config get-value account
+gcloud organizations list
+
+# List your existing projects
+gcloud projects list
+
+# Use an existing project instead
+rm .project-config
+./scripts/setup-gke.sh
+```
 
 #### Billing Issues
 If billing is not enabled:
