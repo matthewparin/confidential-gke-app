@@ -83,7 +83,12 @@ delete_k8s_resources() {
 delete_docker_images() {
     echo -e "${YELLOW}🐳 Deleting Docker images...${NC}"
     
-    # Remove the specific image
+    # List all Docker images before deletion for debugging
+    echo -e "${BLUE}Current Docker images:${NC}"
+    docker images | grep -E "($IMAGE_NAME|confidential)" || echo -e "${YELLOW}No matching images found${NC}"
+    echo ""
+    
+    # Remove the specific image (Artifact Registry format)
     echo -e "${BLUE}Removing image: $FULL_IMAGE_NAME${NC}"
     docker rmi "$FULL_IMAGE_NAME" --force 2>/dev/null || echo -e "${YELLOW}Image not found or already removed${NC}"
     
@@ -91,9 +96,29 @@ delete_docker_images() {
     echo -e "${BLUE}Removing local image: $IMAGE_NAME:$TAG${NC}"
     docker rmi "$IMAGE_NAME:$TAG" --force 2>/dev/null || echo -e "${YELLOW}Local image not found or already removed${NC}"
     
+    # Remove any images with just the image name (without tag)
+    echo -e "${BLUE}Removing any images with name: $IMAGE_NAME${NC}"
+    docker rmi "$IMAGE_NAME" --force 2>/dev/null || echo -e "${YELLOW}Image not found or already removed${NC}"
+    
+    # Remove any images that might have been built with different tags
+    echo -e "${BLUE}Removing any images containing: $IMAGE_NAME${NC}"
+    docker images | grep "$IMAGE_NAME" | awk '{print $3}' | xargs -r docker rmi --force 2>/dev/null || echo -e "${YELLOW}No additional images found${NC}"
+    
     # Clean up any dangling images
     echo -e "${BLUE}Cleaning up dangling images...${NC}"
     docker image prune --force --filter="dangling=true" || true
+    
+    # Clean up unused images
+    echo -e "${BLUE}Cleaning up unused images...${NC}"
+    docker image prune --force --all || true
+    
+    # Final check - if any images with our name still exist, try to remove them by ID
+    echo -e "${BLUE}Final cleanup check...${NC}"
+    if docker images | grep -q "$IMAGE_NAME"; then
+        echo -e "${YELLOW}Found remaining images, attempting removal by ID...${NC}"
+        docker images | grep "$IMAGE_NAME" | awk '{print $1 ":" $2}' | xargs -r docker rmi --force 2>/dev/null || true
+        docker images | grep "$IMAGE_NAME" | awk '{print $3}' | xargs -r docker rmi --force 2>/dev/null || true
+    fi
     
     echo -e "${GREEN}✅ Docker images deleted${NC}"
     echo ""
@@ -200,11 +225,35 @@ verify_cleanup() {
         echo -e "${GREEN}✅ Repository $REPO_NAME deleted${NC}"
     fi
     
-    # Check if Docker image still exists
-    if docker images | grep -q "$IMAGE_NAME"; then
+    # Check if Docker image still exists (check all possible variations)
+    local image_exists=false
+    
+    # Check for full image name
+    if docker images | grep -q "$FULL_IMAGE_NAME"; then
+        echo -e "${RED}❌ Docker image $FULL_IMAGE_NAME still exists${NC}"
+        image_exists=true
+    fi
+    
+    # Check for local image name with tag
+    if docker images | grep -q "$IMAGE_NAME.*$TAG"; then
+        echo -e "${RED}❌ Docker image $IMAGE_NAME:$TAG still exists${NC}"
+        image_exists=true
+    fi
+    
+    # Check for image name without tag
+    if docker images | grep -q "^$IMAGE_NAME "; then
         echo -e "${RED}❌ Docker image $IMAGE_NAME still exists${NC}"
-    else
-        echo -e "${GREEN}✅ Docker image $IMAGE_NAME deleted${NC}"
+        image_exists=true
+    fi
+    
+    # Check for any image containing the image name
+    if docker images | grep -q "$IMAGE_NAME"; then
+        echo -e "${RED}❌ Docker image containing $IMAGE_NAME still exists${NC}"
+        image_exists=true
+    fi
+    
+    if [ "$image_exists" = false ]; then
+        echo -e "${GREEN}✅ All Docker images deleted${NC}"
     fi
     
     echo ""
