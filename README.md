@@ -1,18 +1,18 @@
 # Demonstration of Confidential AI Workloads on Google Kubernetes Engine
 
-This project demonstrates the end-to-end deployment of a containerized application onto a **secure, confidential** Google Kubernetes Engine (GKE) cluster. It showcases modern cloud‑native best practices—Infrastructure as Code (IaC), containerization, and declarative deployments—with a focus on the security and compliance needs of regulated industries.
+This project demonstrates the end-to-end deployment of a containerized application onto a **secure, confidential** Google Kubernetes Engine (GKE) cluster. It showcases modern cloud‑native best practices—Infrastructure as Code (IaC), containerization, and declarative deployments—and does so using a security and compliance-centric pattern that should come to dominate regulated industries and large research consortiums worldwide. 
 
 ---
 
 ## Strategic Context
 
-Enterprises in regulated sectors (finance, healthcare, public sector) face hurdles adopting public cloud for their most sensitive workloads, especially in **AI**. Traditional encryption protects data **at rest** and **in transit**, but not **in use** while residing in memory.
+Enterprises in regulated sectors (finance, healthcare, public sector) face hurdles adopting public cloud for their most sensitive workloads, including in **AI**. Traditional encryption protects data **at rest** and **in transit**, but not **in use** while residing in memory. This gap in protection is one more and more organizations and regulators judge is critical to close.
 
-**Confidential Computing** addresses this gap by using hardware-based **Trusted Execution Environments (TEEs)** to protect data during processing. This ensures sensitive information remains isolated from the cloud provider, privileged administrators, and other workloads.
+**Confidential Computing** addresses this gap by using hardware-based **Trusted Execution Environments (TEEs)** to protect data, models, weights and even code during processing. This ensures sensitive information remains isolated from the cloud provider, privileged administrators, and other workloads.
 
 This project shows a walking skeleton running on **Confidential GKE Nodes**, built on Google Cloud’s Confidential VMs (AMD SEV). It demonstrates a practical, hands‑on approach to building a trusted cloud environment for high‑value AI workloads.
 
-Porting this project to NVIDIA DGX Cloud is achievable by using DGX GPU clusters and toggling on confidential compute mode, more details in [NVIDIA documentation](https://docs.nvidia.com/cc-deployment-guide-snp.pdf). In practice, this change makes is possible to run fine-tuning and inference inside the TEE, with checkpoints and outputs written to encrypted storage so plaintext data and models never leave the secure boundary.
+Porting this project to NVIDIA DGX Cloud is achievable by using DGX GPU clusters and toggling on confidential compute mode, more details in [NVIDIA documentation](https://docs.nvidia.com/cc-deployment-guide-snp.pdf). In practice, this change makes is possible to run fine-tuning and inference inside the TEE, with checkpoints and outputs written to encrypted storage so plaintext data, models, weights, and code never leave the secure boundary.
 
 ---
 
@@ -44,8 +44,8 @@ A modern DevOps workflow enables a repeatable, auditable, and secure deployment 
 
 ## Key Features
 
-- **Confidential Computing**: This application workload runs on GKE nodes with hardware-level memory encryption, ensuring data confidentiality during processing.
-- **Infrastructure as Code**: All cloud resources are defined declaratively in Terraform, providing an auditable and repeatable deployment process critical for compliant environments.
+- **Confidential Computing**: This application workload runs on GKE nodes with hardware-level memory encryption of data during processing.
+- **Infrastructure as Code**: All cloud resources are defined declaratively in Terraform, providing an auditable and repeatable deployment process critical for regulated environments.
 - **Containerized Workload**: The application is packaged with Docker, ensuring consistency across development and production environments.
 - **Declarative Deployment**: Kubernetes manifests define the desired state of the application, leveraging the self-healing and scalable nature of the Google Cloud platform.
 - **Security Best Practices**: The Google Kubernetes Engine (GKE) cluster is provisioned with Shielded Nodes enabled and runs within a dedicated VPC for network isolation.
@@ -187,17 +187,15 @@ curl "http://${EXTERNAL_IP}"
 ## Conclusion
 
 **Project Summary**  
-This project demonstrates deploying a containerized application onto GKE with **Confidential Computing** enabled. Using **Terraform**, **Docker**, and **Kubernetes**, it establishes a secure, repeatable, auditable workflow for sensitive workloads. The repository provides a practical foundation for leading discussions and initiatives focused on security and compliance—relevant to platforms such as **NVIDIA DGX Cloud**.
+This project demonstrates deploying a containerized application onto GKE with **Confidential Nodes** enabled. Using **Terraform**, **Docker**, and **Kubernetes**, it establishes a secure, repeatable, auditable workflow for sensitive workloads. The repository provides a practical foundation for leading discussions and initiatives focused on building scalable environments to generate foundational and fine-tuned models and inference on platforms such as **NVIDIA DGX Cloud**.
 
 **Curated FAQs**
 - **On Infrastructure as Code:**  
-  “I built this on **Terraform** because regulated environments require **auditable, repeatable, version‑controlled** infrastructure. IaC moves security from checklists to automated controls.”
+  “This project leverages **Terraform** because regulated environments almost certainly require **auditable, repeatable, version‑controlled** infrastructure. IaC moves security from checklists to automated controls, defined in code.”
 - **On Confidential Computing:**  
-  “I implemented **Confidential GKE Nodes** to protect customers’ most sensitive IP—their AI models and proprietary data—not just at rest or in transit, but **while in use**. This is a key enterprise trust driver.”
+  “This project leverages **Confidential GKE Nodes** to protect a customers’ most sensitive intellectual property—their AI models and proprietary data—not just at rest or in transit, but also **in use**. This is an emerging state-level and enterprise trust driver.”
 - **On Kubernetes and Cloud‑Native:**  
-  “Using **Kubernetes** demonstrates how workloads are operated at scale, aligning with the cloud‑native ecosystem and shared responsibility model our customers expect.”
-- **On Professionalism and Communication:**  
-  “The repo is structured and documented with a clear README and separation of concerns—signaling my ability to communicate with engineering teams and uphold enterprise standards.”
+  “Using **Kubernetes** demonstrates how workloads are operated at scale, aligning with the cloud‑native ecosystem and shared responsibility model state-level and enterprise customers expect.”
 - **On Strategic Tool Selection:**  
   “**Google Cloud** provides integrated Confidential GKE capabilities, highlighting how a strong ecosystem and ease of use accelerate adoption of advanced security features.”
 
