@@ -83,9 +83,9 @@ The project uses a dynamic configuration system that automatically manages your 
 ```
 
 This script will:
-1. **Check for Google Cloud Account** and authenticate CLI
-2. **Create a new project** (or use existing)
-3. **Check billing enablement** and prompt if needed
+1. **Check authentication and permissions** for Google Cloud
+2. **Create a new project** (or use existing) with proper access
+3. **Automatically enable billing** using available billing accounts
 4. **Enable all necessary APIs** for the project
 5. **Configure project ID** for the session
 
@@ -189,15 +189,38 @@ rm .project-config
 ./scripts/setup-gke.sh
 ```
 
-#### Billing Issues
-If billing is not enabled:
-```bash
-# List available billing accounts
-gcloud billing accounts list
+#### Permission Issues
+If you get permission errors:
+- **Authentication**: Ensure you're logged in with the correct account
+- **Roles**: You need these roles for full functionality:
+  - `Project Creator` (to create new projects)
+  - `Billing Account User` (to link billing accounts)
+  - `Service Usage Admin` (to enable APIs)
+  - `Project Owner` (for full project access)
+- **Organization**: Ensure you're in the correct GCP organization
 
-# Link billing account to project
-gcloud billing projects link PROJECT_ID --billing-account=BILLING_ACCOUNT_ID
+**Check your permissions:**
+```bash
+# Check current authentication
+gcloud auth list
+
+# Check your roles in the organization
+gcloud organizations get-iam-policy ORGANIZATION_ID --flatten="bindings[].members" --format="table(bindings.role)" --filter="bindings.members:$(gcloud config get-value account)"
 ```
+
+#### Billing Issues
+If billing setup fails:
+- **Billing Account**: You need at least one billing account in your organization
+- **Permissions**: You need 'Billing Account User' role to link billing accounts
+- **Organization**: Billing accounts are organization-level resources
+
+**Create a billing account:**
+1. Visit: https://console.cloud.google.com/billing
+2. Click "Create billing account"
+3. Follow the setup process
+4. Return and run the setup script again
+
+
 
 #### InvalidImageName
 - The project ID is automatically configured during setup

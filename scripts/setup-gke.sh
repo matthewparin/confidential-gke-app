@@ -8,6 +8,56 @@ set -e
 # Source configuration functions
 source "$(dirname "$0")/config.sh"
 
+# Check permissions and authentication
+echo ""
+echo -e "${CYAN}🔐 Checking Permissions and Authentication${NC}"
+
+# Check if user is authenticated
+if ! gcloud auth list --filter=status:ACTIVE --format="value(account)" | grep -q .; then
+    echo "❌ Not authenticated to Google Cloud"
+    echo "💡 Please authenticate first:"
+    echo "   gcloud auth login"
+    echo "   gcloud auth application-default login"
+    exit 1
+fi
+
+# Get current user and organization info
+CURRENT_USER=$(gcloud config get-value account)
+CURRENT_ORG=$(gcloud organizations list --format="value(displayName)" 2>/dev/null || echo "No organization")
+echo "✅ Authenticated as: $CURRENT_USER"
+echo "📍 Organization: $CURRENT_ORG"
+
+# Check for required permissions
+echo "🔍 Checking required permissions..."
+
+# Check if user can list projects (basic permission check)
+if ! gcloud projects list --limit=1 >/dev/null 2>&1; then
+    echo "❌ Insufficient permissions to list projects"
+    echo "💡 You need at least 'Project Viewer' role"
+    exit 1
+fi
+
+# Check if user can create projects (if needed)
+if ! gcloud projects create --help >/dev/null 2>&1; then
+    echo "⚠️  May not have project creation permissions"
+    echo "💡 You might need 'Project Creator' role"
+fi
+
+# Check if user can manage billing
+if ! gcloud billing accounts list >/dev/null 2>&1; then
+    echo "⚠️  May not have billing management permissions"
+    echo "💡 You might need 'Billing Account User' role"
+fi
+
+# Check if user can enable APIs
+if ! gcloud services enable --help >/dev/null 2>&1; then
+    echo "⚠️  May not have API management permissions"
+    echo "💡 You might need 'Service Usage Admin' role"
+fi
+
+echo "✅ Permission checks completed"
+echo ""
+
 # Get or prompt for project ID
 if [ ! -f ".project-config" ]; then
     echo "🔧 First time setup - configuring project ID..."
@@ -37,75 +87,153 @@ fi
 # Step 1: Check if project exists, create if needed
 echo ""
 echo -e "${CYAN}📋 Step 1: Checking/Creating GCP Project${NC}"
-if ! gcloud projects describe "$PROJECT_ID" >/dev/null 2>&1; then
+
+# Check if project exists and user has access
+if gcloud projects describe "$PROJECT_ID" >/dev/null 2>&1; then
+    echo "✅ Project $PROJECT_ID exists"
+    
+    # Check if user has access to this project
+    echo "🔍 Checking project access..."
+    if gcloud projects get-iam-policy "$PROJECT_ID" --flatten="bindings[].members" --format="table(bindings.role)" --filter="bindings.members:$CURRENT_USER" >/dev/null 2>&1; then
+        echo "✅ You have access to project $PROJECT_ID"
+    else
+        echo "❌ You don't have access to project $PROJECT_ID"
+        echo "💡 You need to be granted access to this project"
+        echo "   Ask your project admin to add you with appropriate roles"
+        exit 1
+    fi
+    
+    # Set the project as default
+    gcloud config set project "$PROJECT_ID"
+    echo "✅ Set $PROJECT_ID as default project"
+    
+else
     echo "🏗️  Creating new GCP project: $PROJECT_ID"
     
     # Check if user has project creation permissions
     echo "🔍 Checking project creation permissions..."
-    if ! gcloud projects list --filter="projectId:$PROJECT_ID" --limit=1 >/dev/null 2>&1; then
-        echo "⚠️  Checking if you have project creation permissions..."
+    
+    # Try to create the project
+    if gcloud projects create "$PROJECT_ID" --name="GKE Demo Project" --set-as-default; then
+        echo "✅ Project created successfully"
         
-        # Try to create the project
-        if gcloud projects create "$PROJECT_ID" --name="GKE Demo Project" --set-as-default; then
-            echo "✅ Project created successfully"
+        # Grant the current user owner role on the new project
+        echo "🔐 Granting project owner role to current user..."
+        if gcloud projects add-iam-policy-binding "$PROJECT_ID" \
+            --member="user:$CURRENT_USER" \
+            --role="roles/owner"; then
+            echo "✅ Granted owner role to $CURRENT_USER"
         else
-            echo "❌ Failed to create project: $PROJECT_ID"
-            echo ""
-            echo "🔧 Troubleshooting steps:"
-            echo "1. Check if you have the 'Project Creator' role in your organization"
-            echo "2. Verify the project ID is globally unique"
-            echo "3. Ensure you're authenticated with the correct account"
-            echo ""
-            echo "💡 Alternative solutions:"
-            echo "• Use an existing project ID instead"
-            echo "• Ask your GCP admin to create the project for you"
-            echo "• Use a different project ID format"
-            echo ""
-            echo "Current account: $(gcloud config get-value account)"
-            echo "Current organization: $(gcloud organizations list --format='value(displayName)' 2>/dev/null || echo 'Not set')"
-            echo ""
-            read -p "Would you like to try with a different project ID? (y/n): " retry_choice
-            if [[ $retry_choice =~ ^[Yy]$ ]]; then
-                # Generate a new project ID and try again
-                NEW_PROJECT_ID=$(generate_project_id)
-                echo "🔄 Trying with new project ID: $NEW_PROJECT_ID"
-                echo "$NEW_PROJECT_ID" > "$CONFIG_FILE"
-                PROJECT_ID="$NEW_PROJECT_ID"
+            echo "⚠️  Could not grant owner role (this is normal if you're not an org admin)"
+        fi
+        
+    else
+        echo "❌ Failed to create project: $PROJECT_ID"
+        echo ""
+        echo "🔧 Troubleshooting steps:"
+        echo "1. Check if you have the 'Project Creator' role in your organization"
+        echo "2. Verify the project ID is globally unique"
+        echo "3. Ensure you're authenticated with the correct account"
+        echo ""
+        echo "💡 Alternative solutions:"
+        echo "• Use an existing project ID instead"
+        echo "• Ask your GCP admin to create the project for you"
+        echo "• Use a different project ID format"
+        echo ""
+        echo "Current account: $CURRENT_USER"
+        echo "Current organization: $CURRENT_ORG"
+        echo ""
+        read -p "Would you like to try with a different project ID? (y/n): " retry_choice
+        if [[ $retry_choice =~ ^[Yy]$ ]]; then
+            # Generate a new project ID and try again
+            NEW_PROJECT_ID=$(generate_project_id)
+            echo "🔄 Trying with new project ID: $NEW_PROJECT_ID"
+            echo "$NEW_PROJECT_ID" > "$CONFIG_FILE"
+            PROJECT_ID="$NEW_PROJECT_ID"
+            
+            if gcloud projects create "$PROJECT_ID" --name="GKE Demo Project" --set-as-default; then
+                echo "✅ Project created successfully with new ID"
                 
-                if gcloud projects create "$PROJECT_ID" --name="GKE Demo Project" --set-as-default; then
-                    echo "✅ Project created successfully with new ID"
-                else
-                    echo "❌ Still unable to create project. Please use an existing project ID."
-                    echo "💡 Run: rm .project-config && ./scripts/setup-gke.sh"
-                    exit 1
-                fi
+                # Grant the current user owner role on the new project
+                echo "🔐 Granting project owner role to current user..."
+                gcloud projects add-iam-policy-binding "$PROJECT_ID" \
+                    --member="user:$CURRENT_USER" \
+                    --role="roles/owner" || echo "⚠️  Could not grant owner role"
+                    
             else
-                echo "💡 Please use an existing project ID or contact your GCP administrator."
+                echo "❌ Still unable to create project. Please use an existing project ID."
+                echo "💡 Run: rm .project-config && ./scripts/setup-gke.sh"
                 exit 1
             fi
+        else
+            echo "💡 Please use an existing project ID or contact your GCP administrator."
+            exit 1
         fi
-    else
-        echo "✅ Project $PROJECT_ID already exists"
     fi
-else
-    echo "✅ Project $PROJECT_ID already exists"
 fi
 
-# Step 2: Check billing
+# Step 2: Check and enable billing
 echo ""
-echo -e "${CYAN}📋 Step 2: Checking Billing${NC}"
+echo -e "${CYAN}📋 Step 2: Checking and Enabling Billing${NC}"
+
+# Check if billing is already enabled
 billing_account=$(gcloud billing projects describe "$PROJECT_ID" --format="value(billingAccountName)" 2>/dev/null || echo "")
-if [ -z "$billing_account" ] || [ "$billing_account" = "" ]; then
-    echo "❌ Billing not enabled for project $PROJECT_ID"
-    echo "💡 Please enable billing manually:"
-    echo "   gcloud billing projects link $PROJECT_ID --billing-account=BILLING_ACCOUNT_ID"
-    echo ""
-    echo "Or visit: https://console.cloud.google.com/billing/projects"
-    echo "Select project: $PROJECT_ID and link a billing account"
-    echo ""
-    read -p "Press Enter after enabling billing, or Ctrl+C to cancel..."
+if [ -n "$billing_account" ] && [ "$billing_account" != "" ]; then
+    echo "✅ Billing already enabled: $billing_account"
 else
-    echo "✅ Billing enabled: $billing_account"
+    echo "💰 Billing not enabled for project $PROJECT_ID"
+    echo "🔍 Looking for available billing accounts..."
+    
+    # List available billing accounts
+    billing_accounts=$(gcloud billing accounts list --format="value(ACCOUNT_ID)" 2>/dev/null || echo "")
+    
+    if [ -n "$billing_accounts" ]; then
+        # Get the first available billing account
+        first_billing_account=$(echo "$billing_accounts" | head -1)
+        echo "✅ Found billing account: $first_billing_account"
+        
+        # Try to link the billing account
+        echo "🔗 Linking billing account to project..."
+        if gcloud billing projects link "$PROJECT_ID" --billing-account="$first_billing_account"; then
+            echo "✅ Billing enabled successfully with account: $first_billing_account"
+        else
+            echo "❌ Failed to link billing account automatically"
+            echo ""
+            echo "💡 Manual billing setup required:"
+            echo "1. Visit: https://console.cloud.google.com/billing/projects"
+            echo "2. Select project: $PROJECT_ID"
+            echo "3. Link a billing account"
+            echo ""
+            echo "Or run: gcloud billing projects link $PROJECT_ID --billing-account=BILLING_ACCOUNT_ID"
+            echo ""
+            read -p "Press Enter after enabling billing, or Ctrl+C to cancel..."
+        fi
+    else
+        echo "❌ No billing accounts found"
+        echo ""
+        echo "💡 You need to create a billing account first:"
+        echo "1. Visit: https://console.cloud.google.com/billing"
+        echo "2. Create a new billing account"
+        echo "3. Return here and run the setup again"
+        echo ""
+        read -p "Press Enter after creating a billing account, or Ctrl+C to cancel..."
+        
+        # Try again after user creates billing account
+        billing_accounts=$(gcloud billing accounts list --format="value(ACCOUNT_ID)" 2>/dev/null || echo "")
+        if [ -n "$billing_accounts" ]; then
+            first_billing_account=$(echo "$billing_accounts" | head -1)
+            echo "🔄 Linking billing account: $first_billing_account"
+            if gcloud billing projects link "$PROJECT_ID" --billing-account="$first_billing_account"; then
+                echo "✅ Billing enabled successfully"
+            else
+                echo "❌ Still unable to link billing account"
+                exit 1
+            fi
+        else
+            echo "❌ Still no billing accounts found"
+            exit 1
+        fi
+    fi
 fi
 
 # Step 3: Enable APIs
