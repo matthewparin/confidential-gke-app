@@ -220,6 +220,30 @@ If billing setup fails:
 3. Follow the setup process
 4. Return and run the setup script again
 
+#### GKE Cluster Issues
+If GKE cluster creation fails:
+- **Quota Limits**: Check your GKE quota in the region
+- **Permissions**: You need 'Kubernetes Engine Admin' role
+- **Billing**: Ensure billing is enabled for the project
+- **Region**: Verify the region has GKE available
+
+**Check cluster status:**
+```bash
+# List clusters in the region
+gcloud container clusters list --region=us-central1
+
+# Check cluster details
+gcloud container clusters describe confidential-cluster --region=us-central1
+
+# Check your GKE quota
+gcloud compute regions describe us-central1 --format="value(quotas[].limit,quotas[].usage)"
+```
+
+**Common solutions:**
+- Use a different region if quota is exceeded
+- Request quota increase from GCP support
+- Use an existing cluster instead of creating new one
+
 
 
 #### InvalidImageName

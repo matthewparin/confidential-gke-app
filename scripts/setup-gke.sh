@@ -261,12 +261,6 @@ REPO_NAME="confidential-repo"
 
 echo "🚀 Setting up GKE environment for confidential app..."
 
-# Enable required APIs
-echo "📋 Enabling required APIs..."
-gcloud services enable container.googleapis.com
-gcloud services enable artifactregistry.googleapis.com
-gcloud services enable iam.googleapis.com
-
 # Create Artifact Registry repository if it doesn't exist
 echo "🏗️  Setting up Artifact Registry..."
 gcloud artifacts repositories create $REPO_NAME \
@@ -296,19 +290,62 @@ gcloud projects add-iam-policy-binding $PROJECT_ID \
 
 # Create GKE cluster if it doesn't exist
 echo "🏗️  Setting up GKE cluster..."
-gcloud container clusters create $CLUSTER_NAME \
-    --region=$REGION \
-    --num-nodes=2 \
-    --enable-autoscaling \
-    --min-nodes=1 \
-    --max-nodes=5 \
-    --machine-type=e2-standard-2 \
-    --enable-workload-identity \
-    --quiet || echo "Cluster already exists"
+if gcloud container clusters describe "$CLUSTER_NAME" --region="$REGION" --project="$PROJECT_ID" >/dev/null 2>&1; then
+    echo "✅ Cluster $CLUSTER_NAME already exists"
+else
+    echo "🏗️  Creating new GKE cluster: $CLUSTER_NAME"
+    if gcloud container clusters create "$CLUSTER_NAME" \
+        --region="$REGION" \
+        --project="$PROJECT_ID" \
+        --num-nodes=2 \
+        --enable-autoscaling \
+        --min-nodes=1 \
+        --max-nodes=5 \
+        --machine-type=e2-standard-2 \
+        --enable-identity-service \
+        --workload-pool="$PROJECT_ID.svc.id.goog" \
+        --quiet; then
+        echo "✅ GKE cluster created successfully"
+    else
+        echo "❌ Failed to create GKE cluster"
+        echo "💡 This might be due to insufficient permissions or quota limits"
+        echo "   Check your GKE quota and permissions"
+        exit 1
+    fi
+fi
 
 # Get cluster credentials
 echo "🔑 Getting cluster credentials..."
-gcloud container clusters get-credentials $CLUSTER_NAME --region=$REGION
+if gcloud container clusters get-credentials "$CLUSTER_NAME" --region="$REGION" --project="$PROJECT_ID"; then
+    echo "✅ Cluster credentials retrieved successfully"
+else
+    echo "❌ Failed to get cluster credentials"
+    echo "💡 This might be because:"
+    echo "   - The cluster doesn't exist"
+    echo "   - You don't have access to the cluster"
+    echo "   - The cluster is in a different region"
+    echo ""
+    echo "🔍 Checking cluster status..."
+    gcloud container clusters list --region="$REGION" --project="$PROJECT_ID"
+    exit 1
+fi
+
+# Verify cluster is ready
+echo "🔍 Verifying cluster is ready..."
+if kubectl cluster-info >/dev/null 2>&1; then
+    echo "✅ Cluster is ready and accessible"
+else
+    echo "❌ Cluster is not ready or accessible"
+    echo "💡 Waiting for cluster to be ready..."
+    sleep 30
+    if kubectl cluster-info >/dev/null 2>&1; then
+        echo "✅ Cluster is now ready"
+    else
+        echo "❌ Cluster is still not ready"
+        echo "💡 Check cluster status: gcloud container clusters describe $CLUSTER_NAME --region=$REGION"
+        exit 1
+    fi
+fi
 
 # Create namespace if it doesn't exist
 echo "📁 Creating namespace..."
