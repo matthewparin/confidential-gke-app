@@ -6,7 +6,7 @@ This project demonstrates the end-to-end deployment of a containerized applicati
 
 ## Strategic Context
 
-Enterprises in regulated sectors (finance, healthcare, public sector) face hurdles adopting public cloud for their most sensitive workloads, including in **AI**. Traditional encryption protects data **at rest** and **in transit**, but not **in use** while residing in memory. This gap in protection is one more and more organizations and regulators judge is critical to close.
+Enterprises in regulated sectors (finance, healthcare, public sector) face hurdles adopting public cloud for their most sensitive workloads, including in **AI**. Traditional encryption protects data **at rest** and **in transit**, but not **in use** while residing in memory. More and more, organizations and regulators judge it is critical to close this gap.
 
 **Confidential Computing** addresses this gap by using hardware-based **Trusted Execution Environments (TEEs)** to protect data, models, weights and even code during processing. This ensures sensitive information remains isolated from the cloud provider, privileged administrators, and other workloads.
 
