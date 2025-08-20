@@ -17,6 +17,55 @@ else
     echo "✅ Using existing project ID: $PROJECT_ID"
 fi
 
+# Step 1: Check if project exists, create if needed
+echo ""
+echo -e "${CYAN}📋 Step 1: Checking/Creating GCP Project${NC}"
+if ! gcloud projects describe "$PROJECT_ID" >/dev/null 2>&1; then
+    echo "🏗️  Creating new GCP project: $PROJECT_ID"
+    if gcloud projects create "$PROJECT_ID" --name="GKE Demo Project" --set-as-default; then
+        echo "✅ Project created successfully"
+    else
+        echo "❌ Failed to create project. Please check your permissions."
+        exit 1
+    fi
+else
+    echo "✅ Project $PROJECT_ID already exists"
+fi
+
+# Step 2: Check billing
+echo ""
+echo -e "${CYAN}📋 Step 2: Checking Billing${NC}"
+billing_account=$(gcloud billing projects describe "$PROJECT_ID" --format="value(billingAccountName)" 2>/dev/null || echo "")
+if [ -z "$billing_account" ] || [ "$billing_account" = "" ]; then
+    echo "❌ Billing not enabled for project $PROJECT_ID"
+    echo "💡 Please enable billing manually:"
+    echo "   gcloud billing projects link $PROJECT_ID --billing-account=BILLING_ACCOUNT_ID"
+    echo ""
+    echo "Or visit: https://console.cloud.google.com/billing/projects"
+    echo "Select project: $PROJECT_ID and link a billing account"
+    echo ""
+    read -p "Press Enter after enabling billing, or Ctrl+C to cancel..."
+else
+    echo "✅ Billing enabled: $billing_account"
+fi
+
+# Step 3: Enable APIs
+echo ""
+echo -e "${CYAN}📋 Step 3: Enabling Required APIs${NC}"
+apis=(
+    "compute.googleapis.com"
+    "container.googleapis.com"
+    "artifactregistry.googleapis.com"
+    "iam.googleapis.com"
+    "cloudresourcemanager.googleapis.com"
+)
+
+for api in "${apis[@]}"; do
+    echo "Enabling $api..."
+    gcloud services enable "$api" --project="$PROJECT_ID"
+    echo "✅ $api enabled"
+done
+
 # Configuration
 REGION="us-central1"
 CLUSTER_NAME="confidential-cluster"

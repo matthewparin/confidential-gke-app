@@ -56,24 +56,38 @@ A modern DevOps workflow enables a repeatable, auditable, and secure deployment 
 
 ### Prerequisites
 - macOS development environment with **Homebrew**, **Docker**, **gcloud CLI**, **Terraform**, and **kubectl**.
-- A Google Cloud **project** with an active **billing account**.
+- A Google Cloud **account** with billing enabled.
 
-### 1) Clone the Repository
+### Step-by-Step Deployment Process
+
+This project follows a comprehensive 15-step deployment process to ensure everything works correctly:
+
+#### **Step 0: Prerequisites Check**
+```bash
+# Check all requirements before starting
+./scripts/check-prerequisites.sh
+```
+
+#### **Step 1: Clone the Repository**
 ```bash
 git clone
 cd confidential-gke-app
 ```
 
-### 2) Configure GCP Project
+#### **Step 2: Configure GCP Project**
 The project uses a dynamic configuration system that automatically manages your GCP project ID.
 
 **First time setup:**
 ```bash
 ./scripts/setup-gke.sh
 ```
-This will prompt you to either:
-- Use an existing GCP project ID
-- Generate a new unique project ID
+
+This script will:
+1. **Check for Google Cloud Account** and authenticate CLI
+2. **Create a new project** (or use existing)
+3. **Check billing enablement** and prompt if needed
+4. **Enable all necessary APIs** for the project
+5. **Configure project ID** for the session
 
 **View current configuration:**
 ```bash
@@ -85,56 +99,80 @@ This will prompt you to either:
 rm .project-config
 ./scripts/setup-gke.sh
 ```
+
+#### **Step 3: Deploy the Application**
 ```bash
-# The project ID will be automatically configured during setup
-# You can either use an existing GCP project or generate a unique one
-
-export REGION="us-central1"
-export AR_REPO="confidential-repo"
-export IMAGE_NAME="confidential-app"
-export TAG="v1"
-
-# The setup script will handle project configuration automatically
-```
-
-### 3) Deploy the Application to GKE
-
-#### Option A: Automated Deployment (Recommended)
-```bash
-# Run the setup script to configure GKE and service accounts
-./scripts/setup-gke.sh
-
-# Deploy the application
 ./scripts/deploy.sh
 ```
 
-#### Option B: Manual Deployment
+This script will:
+6. **Containerize the Python application** with Docker
+7. **Build the image** and verify it works locally
+8. **Create Google Artifact Registry Repository** and configure Docker authentication
+9. **Verify fully-qualified image name** (registry location, projectID, repository name, image name)
+10. **Push the image** to Google Artifact Registry
+11. **Define infrastructure requirements** in Terraform (if available)
+12. **Plan and deploy Terraform** (or use gcloud for infrastructure)
+13. **Deploy containerized application** with Kubernetes to create pods
+14. **Apply the service** to create the load balancer
+15. **Get external IP** and test the application with curl
+
+### 4) Access the Application
+The deployment script will automatically provide you with the external IP and test the application. You can also manually check:
+
 ```bash
-# Configure kubectl against your cluster
-gcloud container clusters get-credentials confidential-cluster --region "${REGION}" --project "${PROJECT_ID}"
-
-# Apply service account and RBAC
-kubectl apply -f ./kubernetes/service-account.yaml
-
-# Apply manifests
-kubectl apply -f ./kubernetes/
-```
-
-### 7) Access the Application
-```bash
-# Wait for an external IP to be assigned
+# Get the external IP
 kubectl get service confidential-app-service
 
-# Capture external IP and test
+# Test the application
 export EXTERNAL_IP=$(kubectl get service confidential-app-service -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-curl "http://${EXTERNAL_IP}"
+curl "http://${EXTERNAL_IP}/api/v1/health"
+```
+
+### 5) Clean Up
+```bash
+# Complete teardown of all resources
+./scripts/teardown.sh
 ```
 
 ---
 
 ## Troubleshooting
 
-### InvalidImageName
+### Common Issues
+
+#### Prerequisites Not Met
+If the prerequisites check fails:
+```bash
+# Run the prerequisites check
+./scripts/check-prerequisites.sh
+
+# Install missing tools
+# macOS with Homebrew:
+brew install google-cloud-sdk docker kubectl terraform
+
+# Authenticate to GCP
+gcloud auth login
+gcloud auth application-default login
+```
+
+#### Project Creation Issues
+If project creation fails:
+- Ensure you have the necessary permissions in your GCP organization
+- Check if the project ID is globally unique
+- Verify billing is enabled for your account
+
+#### Billing Issues
+If billing is not enabled:
+```bash
+# List available billing accounts
+gcloud billing accounts list
+
+# Link billing account to project
+gcloud billing projects link PROJECT_ID --billing-account=BILLING_ACCOUNT_ID
+```
+
+#### InvalidImageName
 - The project ID is automatically configured during setup
 - Ensure the image follows:  
   `REGION-docker.pkg.dev/PROJECT_ID/REPO/IMAGE:TAG`  
