@@ -13,8 +13,19 @@ BLUE='\033[0;34m'
 CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
+# Source configuration functions
+source "$(dirname "$0")/config.sh"
+
+# Get project ID
+PROJECT_ID=$(get_project_id)
+if [ -z "$PROJECT_ID" ]; then
+    echo "❌ No project ID configured. Nothing to tear down."
+    exit 0
+fi
+
+echo "✅ Using project ID: $PROJECT_ID"
+
 # Configuration
-PROJECT_ID="cc-demo-1755288433-mwp"
 REGION="us-central1"
 CLUSTER_NAME="confidential-cluster"
 SERVICE_ACCOUNT_NAME="confidential-app-sa"
@@ -224,6 +235,9 @@ main() {
     
     # Clean up local files
     cleanup_local_files
+    
+    # Clear project configuration
+    clear_project_id
     
     # Verify cleanup
     verify_cleanup

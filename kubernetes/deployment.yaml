@@ -18,9 +18,8 @@ spec:
       serviceAccountName: confidential-app-sa
       containers:
       - name: confidential-app-container
-        # IMPORTANT: Replace <PROJECT_ID> with your actual GCP Project ID.
-        # This must be done manually or via a script in a real CI/CD pipeline.
-        image: us-central1-docker.pkg.dev/cc-demo-1755288433-mwp/confidential-repo/confidential-app:v1
+        # Project ID will be dynamically replaced during deployment
+        image: us-central1-docker.pkg.dev/PROJECT_ID_PLACEHOLDER/confidential-repo/confidential-app:v1
         ports:
         - containerPort: 5000
         resources:

@@ -65,50 +65,39 @@ cd confidential-gke-app
 ```
 
 ### 2) Configure GCP Project
+The project uses a dynamic configuration system that automatically manages your GCP project ID.
+
+**First time setup:**
 ```bash
-# Set your unique Project ID (must be globally unique in GCP)
-export PROJECT_ID="your-gcp-project-id"
+./scripts/setup-gke.sh
+```
+This will prompt you to either:
+- Use an existing GCP project ID
+- Generate a new unique project ID
+
+**View current configuration:**
+```bash
+./scripts/show-config.sh
+```
+
+**Change project ID:**
+```bash
+rm .project-config
+./scripts/setup-gke.sh
+```
+```bash
+# The project ID will be automatically configured during setup
+# You can either use an existing GCP project or generate a unique one
+
 export REGION="us-central1"
 export AR_REPO="confidential-repo"
 export IMAGE_NAME="confidential-app"
 export TAG="v1"
 
-gcloud config set project "${PROJECT_ID}"
-
-# (One-time) Link billing & enable core APIs as needed
-# gcloud beta billing projects link "${PROJECT_ID}" --billing-account <BILLING_ACCOUNT_ID>
-gcloud services enable compute.googleapis.com container.googleapis.com artifactregistry.googleapis.com
+# The setup script will handle project configuration automatically
 ```
 
-### 3) Create Artifact Registry (if not already created)
-```bash
-gcloud artifacts repositories create "${AR_REPO}"   --project="${PROJECT_ID}"   --repository-format=docker   --location="${REGION}" --description="Private repo for confidential app images" || true
-```
-
-### 4) Build & Push the Container Image
-```bash
-# Build (note the space before the final dot)
-docker build -t "${IMAGE_NAME}:${TAG}" .
-
-# Authenticate Docker to Artifact Registry
-gcloud auth configure-docker "${REGION}-docker.pkg.dev"
-
-# Tag & push
-docker tag "${IMAGE_NAME}:${TAG}" "${REGION}-docker.pkg.dev/${PROJECT_ID}/${AR_REPO}/${IMAGE_NAME}:${TAG}"
-
-docker push "${REGION}-docker.pkg.dev/${PROJECT_ID}/${AR_REPO}/${IMAGE_NAME}:${TAG}"
-```
-
-### 5) Provision Infrastructure with Terraform
-```bash
-cd terraform
-terraform init
-terraform apply -var="project_id=${PROJECT_ID}" -var="region=${REGION}"
-# Outputs should include the cluster name/region
-cd ..
-```
-
-### 6) Deploy the Application to GKE
+### 3) Deploy the Application to GKE
 
 #### Option A: Automated Deployment (Recommended)
 ```bash
@@ -146,6 +135,7 @@ curl "http://${EXTERNAL_IP}"
 ## Troubleshooting
 
 ### InvalidImageName
+- The project ID is automatically configured during setup
 - Ensure the image follows:  
   `REGION-docker.pkg.dev/PROJECT_ID/REPO/IMAGE:TAG`  
   Example: `us-central1-docker.pkg.dev/my-project/confidential-repo/confidential-app:v1`
@@ -154,6 +144,8 @@ curl "http://${EXTERNAL_IP}"
 ### ErrImagePull / ImagePullBackOff
 1. **Verify the tag exists:**
    ```bash
+   # Get the current project ID
+   PROJECT_ID=$(cat .project-config 2>/dev/null || echo "not-configured")
    gcloud artifacts docker images list "${REGION}-docker.pkg.dev/${PROJECT_ID}/${AR_REPO}" --format='table(NAME,TAGS)'
    ```
 2. **Check service account configuration:**
@@ -164,6 +156,8 @@ curl "http://${EXTERNAL_IP}"
    ```
 3. **Grant GKE nodes permission to pull from Artifact Registry:**
    ```bash
+   # Get the current project ID
+   PROJECT_ID=$(cat .project-config 2>/dev/null || echo "not-configured")
    PROJECT_NUMBER="$(gcloud projects describe "${PROJECT_ID}" --format='value(projectNumber)')"
 
    # If using the default compute service account on nodes:

@@ -5,8 +5,19 @@
 
 set -e
 
+# Source configuration functions
+source "$(dirname "$0")/config.sh"
+
+# Get or prompt for project ID
+if [ ! -f ".project-config" ]; then
+    echo "🔧 First time setup - configuring project ID..."
+    PROJECT_ID=$(prompt_project_id)
+else
+    PROJECT_ID=$(get_project_id)
+    echo "✅ Using existing project ID: $PROJECT_ID"
+fi
+
 # Configuration
-PROJECT_ID="cc-demo-1755288433-mwp"
 REGION="us-central1"
 CLUSTER_NAME="confidential-cluster"
 SERVICE_ACCOUNT_NAME="confidential-app-sa"

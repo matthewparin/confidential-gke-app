@@ -5,8 +5,19 @@
 
 set -e
 
+# Source configuration functions
+source "$(dirname "$0")/config.sh"
+
+# Get project ID
+PROJECT_ID=$(get_project_id)
+if [ -z "$PROJECT_ID" ]; then
+    echo "❌ No project ID configured. Please run setup first: ./scripts/setup-gke.sh"
+    exit 1
+fi
+
+echo "✅ Using project ID: $PROJECT_ID"
+
 # Configuration
-PROJECT_ID="cc-demo-1755288433-mwp"
 REGION="us-central1"
 REPO_NAME="confidential-repo"
 IMAGE_NAME="confidential-app"
@@ -27,9 +38,20 @@ docker build -t $FULL_IMAGE_NAME .
 echo "📤 Pushing image to Artifact Registry..."
 docker push $FULL_IMAGE_NAME
 
-# Apply Kubernetes manifests
+# Apply Kubernetes manifests with project ID replacement
 echo "📋 Applying Kubernetes manifests..."
-kubectl apply -f kubernetes/
+# Create a temporary directory for modified manifests
+TEMP_DIR=$(mktemp -d)
+cp -r kubernetes/* "$TEMP_DIR/"
+
+# Replace PROJECT_ID_PLACEHOLDER with actual project ID in all files
+find "$TEMP_DIR" -name "*.yaml" -exec sed -i.bak "s/PROJECT_ID_PLACEHOLDER/$PROJECT_ID/g" {} \;
+
+# Apply the modified manifests
+kubectl apply -f "$TEMP_DIR/"
+
+# Clean up temporary directory
+rm -rf "$TEMP_DIR"
 
 # Wait for deployment to be ready
 echo "⏳ Waiting for deployment to be ready..."

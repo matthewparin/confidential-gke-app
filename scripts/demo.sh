@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# NVIDIA DGX Cloud - Confidential AI Platform Demo Script
+# GKE - Confidential AI Platform Demo Script
 # This script demonstrates the enterprise-grade capabilities of the platform
 
 set -e
@@ -13,6 +13,12 @@ BLUE='\033[0;34m'
 PURPLE='\033[0;35m'
 CYAN='\033[0;36m'
 NC='\033[0m' # No Color
+
+# Source configuration functions
+source "$(dirname "$0")/config.sh"
+
+# Get project ID for display
+PROJECT_ID=$(get_project_id 2>/dev/null || echo "not-configured")
 
 # Configuration
 BASE_URL="http://localhost:5000"
