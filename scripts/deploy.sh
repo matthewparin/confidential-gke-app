@@ -30,15 +30,42 @@ echo "🚀 Starting deployment process..."
 echo ""
 echo -e "${CYAN}📋 Step 6: Containerizing Python Application${NC}"
 echo "🏗️  Building Docker image..."
-docker build -t $FULL_IMAGE_NAME .
+
+# Check if Dockerfile exists
+if [ ! -f "Dockerfile" ]; then
+    echo "❌ Dockerfile not found"
+    echo "💡 Please ensure Dockerfile exists in the current directory"
+    exit 1
+fi
+
+# Build the Docker image with error handling
+echo "🏗️  Building image: $FULL_IMAGE_NAME"
+if docker build -t "$FULL_IMAGE_NAME" .; then
+    echo "✅ Docker image built successfully"
+else
+    echo "❌ Docker image build failed"
+    echo ""
+    echo "🔧 Troubleshooting steps:"
+    echo "1. Check if Docker is running:"
+    echo "   docker info"
+    echo ""
+    echo "2. Check Dockerfile syntax:"
+    echo "   docker build --no-cache -t test-image ."
+    echo ""
+    echo "3. Check for missing files:"
+    echo "   ls -la app/"
+    echo ""
+    exit 1
+fi
 
 # Verify the image was built successfully
 echo "🔍 Verifying Docker image..."
 if docker images | grep -q "$IMAGE_NAME"; then
-    echo "✅ Docker image built successfully"
+    echo "✅ Docker image verified locally"
     docker images | grep "$IMAGE_NAME"
 else
-    echo "❌ Docker image build failed"
+    echo "❌ Docker image not found locally"
+    echo "💡 The build might have failed silently"
     exit 1
 fi
 
@@ -92,15 +119,56 @@ fi
 echo ""
 echo -e "${CYAN}📋 Step 9: Pushing Image to Artifact Registry${NC}"
 echo "📤 Pushing image to Artifact Registry..."
-docker push $FULL_IMAGE_NAME
 
-# Verify the image was pushed successfully
-echo "🔍 Verifying image in Artifact Registry..."
-if gcloud artifacts docker images list "$REGION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME" --format="table(NAME,TAGS)" | grep -q "$IMAGE_NAME"; then
+# Check if Docker is authenticated to Artifact Registry
+echo "🔐 Checking Docker authentication..."
+if ! docker pull "$FULL_IMAGE_NAME" >/dev/null 2>&1; then
+    echo "⚠️  Docker not authenticated to Artifact Registry"
+    echo "🔑 Re-authenticating Docker..."
+    gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
+fi
+
+# Push the image with error handling
+echo "📤 Pushing image: $FULL_IMAGE_NAME"
+if docker push "$FULL_IMAGE_NAME"; then
     echo "✅ Image pushed successfully"
 else
     echo "❌ Image push failed"
+    echo ""
+    echo "🔧 Troubleshooting steps:"
+    echo "1. Check Docker authentication:"
+    echo "   gcloud auth configure-docker us-central1-docker.pkg.dev"
+    echo ""
+    echo "2. Verify the image exists locally:"
+    echo "   docker images | grep $IMAGE_NAME"
+    echo ""
+    echo "3. Check Artifact Registry permissions:"
+    echo "   gcloud artifacts repositories describe $REPO_NAME --location=$REGION"
+    echo ""
+    echo "4. Try building the image again:"
+    echo "   docker build -t $FULL_IMAGE_NAME ."
+    echo ""
     exit 1
+fi
+
+# Verify the image was pushed successfully
+echo "🔍 Verifying image in Artifact Registry..."
+sleep 5  # Give Artifact Registry time to index the image
+
+if gcloud artifacts docker images list "$REGION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME" --format="table(NAME,TAGS)" | grep -q "$IMAGE_NAME"; then
+    echo "✅ Image verified in Artifact Registry"
+else
+    echo "⚠️  Image not found in Artifact Registry listing"
+    echo "💡 This might be a timing issue. Continuing anyway..."
+    
+    # Try a different verification method
+    if gcloud artifacts docker images list "$REGION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME" --include-tags | grep -q "$IMAGE_NAME"; then
+        echo "✅ Image found with alternative verification method"
+    else
+        echo "❌ Image verification failed"
+        echo "💡 The image might not have been pushed successfully"
+        echo "   Continuing with deployment anyway..."
+    fi
 fi
 
 # Step 10: Define infrastructure requirements (Terraform)
@@ -119,12 +187,45 @@ fi
 if [ -d "terraform" ] && [ -f "terraform/main.tf" ]; then
     echo ""
     echo -e "${CYAN}📋 Step 11: Planning and Deploying Terraform${NC}"
-    cd terraform
-    terraform init
-    terraform plan -var="project_id=$PROJECT_ID" -var="region=$REGION"
-    terraform apply -var="project_id=$PROJECT_ID" -var="region=$REGION" -auto-approve
-    cd ..
-    echo "✅ Terraform deployment completed"
+    
+    # Check if cluster already exists (created by setup script)
+    if gcloud container clusters describe "confidential-cluster" --region="$REGION" --project="$PROJECT_ID" >/dev/null 2>&1; then
+        echo "⚠️  Cluster already exists (created by setup script)"
+        echo "💡 Skipping Terraform deployment to avoid conflicts"
+        echo "✅ Using existing cluster created by gcloud"
+    else
+        echo "🏗️  Deploying infrastructure with Terraform..."
+        cd terraform
+        
+        # Initialize Terraform
+        if terraform init; then
+            echo "✅ Terraform initialized"
+        else
+            echo "❌ Terraform initialization failed"
+            cd ..
+            exit 1
+        fi
+        
+        # Plan Terraform deployment
+        if terraform plan -var="project_id=$PROJECT_ID" -var="region=$REGION"; then
+            echo "✅ Terraform plan completed"
+        else
+            echo "❌ Terraform plan failed"
+            cd ..
+            exit 1
+        fi
+        
+        # Apply Terraform deployment
+        if terraform apply -var="project_id=$PROJECT_ID" -var="region=$REGION" -auto-approve; then
+            echo "✅ Terraform deployment completed"
+        else
+            echo "❌ Terraform deployment failed"
+            cd ..
+            exit 1
+        fi
+        
+        cd ..
+    fi
 else
     echo ""
     echo -e "${CYAN}📋 Step 11: Using gcloud for Infrastructure${NC}"

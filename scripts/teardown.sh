@@ -187,13 +187,36 @@ cleanup_local_files() {
     # Remove any local kubeconfig files
     find . -name "*.kubeconfig" -delete 2>/dev/null || true
     
-    # Remove any terraform state files
+    # Clean up Terraform state and files
+    if [ -d "terraform" ]; then
+        echo -e "${BLUE}Cleaning up Terraform state...${NC}"
+        cd terraform
+        
+        # Destroy Terraform resources if state exists
+        if [ -f "terraform.tfstate" ]; then
+            echo -e "${BLUE}Destroying Terraform resources...${NC}"
+            terraform destroy -auto-approve -var="project_id=$PROJECT_ID" -var="region=$REGION" 2>/dev/null || echo -e "${YELLOW}Terraform destroy failed or no resources to destroy${NC}"
+        fi
+        
+        # Remove Terraform state files
+        rm -f terraform.tfstate terraform.tfstate.backup 2>/dev/null || true
+        
+        cd ..
+    fi
+    
+    # Remove any terraform state files in root
     find . -name "*.tfstate*" -delete 2>/dev/null || true
     
     # Remove terraform directory
     if [ -d ".terraform" ]; then
         echo -e "${BLUE}Removing .terraform directory...${NC}"
         rm -rf .terraform
+    fi
+    
+    # Remove terraform directory in terraform folder
+    if [ -d "terraform/.terraform" ]; then
+        echo -e "${BLUE}Removing terraform/.terraform directory...${NC}"
+        rm -rf terraform/.terraform
     fi
     
     echo -e "${GREEN}✅ Local files cleaned up${NC}"

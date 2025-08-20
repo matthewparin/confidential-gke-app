@@ -222,7 +222,7 @@ If billing setup fails:
 
 #### GKE Cluster Issues
 If GKE cluster creation fails:
-- **Quota Limits**: Check your GKE quota in the region
+- **Quota Limits**: Check your GKE quota in the region (especially SSD_TOTAL_GB)
 - **Permissions**: You need 'Kubernetes Engine Admin' role
 - **Billing**: Ensure billing is enabled for the project
 - **Region**: Verify the region has GKE available
@@ -239,10 +239,128 @@ gcloud container clusters describe confidential-cluster --region=us-central1
 gcloud compute regions describe us-central1 --format="value(quotas[].limit,quotas[].usage)"
 ```
 
+**Common quota issues:**
+- **SSD_TOTAL_GB**: Default is 400GB, GKE needs 600GB+ for standard clusters
+- **CPUS**: Need sufficient CPU quota for the machine type
+- **IN_USE_ADDRESSES**: IP address quota for load balancers
+
+**Solutions:**
+1. **Request quota increase:**
+   - Visit: https://console.cloud.google.com/iam-admin/quotas
+   - Select your project and region
+   - Request increase for SSD_TOTAL_GB and CPUS
+
+2. **Use minimal cluster settings:**
+   - Single node (--num-nodes=1)
+   - Smaller disk size (--disk-size=20)
+   - Standard disk type (--disk-type=pd-standard)
+
+3. **Try different region:**
+   ```bash
+   gcloud compute regions list --filter='name~us-'
+   ```
+
+4. **Use existing cluster:**
+   - Ask your GCP admin for access to existing cluster
+   - Use a shared development cluster
+
+#### Artifact Registry Issues
+If image push to Artifact Registry fails:
+- **Authentication**: Ensure Docker is authenticated to Artifact Registry
+- **Permissions**: You need 'Artifact Registry Writer' role
+- **Repository**: Verify the repository exists and is accessible
+- **Image name**: Check the fully-qualified image name format
+
+**Check Artifact Registry:**
+```bash
+# List repositories
+gcloud artifacts repositories list --location=us-central1
+
+# Check repository details
+gcloud artifacts repositories describe confidential-repo --location=us-central1
+
+# List images in repository
+gcloud artifacts docker images list us-central1-docker.pkg.dev/PROJECT_ID/confidential-repo
+```
+
+**Fix authentication:**
+```bash
+# Authenticate Docker to Artifact Registry
+gcloud auth configure-docker us-central1-docker.pkg.dev
+
+# Verify authentication
+docker pull us-central1-docker.pkg.dev/PROJECT_ID/confidential-repo/confidential-app:v1
+```
+
 **Common solutions:**
-- Use a different region if quota is exceeded
-- Request quota increase from GCP support
-- Use an existing cluster instead of creating new one
+- Re-authenticate Docker: `gcloud auth configure-docker us-central1-docker.pkg.dev`
+- Check repository permissions: Ensure you have 'Artifact Registry Writer' role
+- Verify image exists locally: `docker images | grep confidential-app`
+- Rebuild image: `docker build -t FULL_IMAGE_NAME .`
+
+#### Service Account Issues
+If service account creation or permission granting fails:
+- **Permissions**: You need 'Service Account Admin' and 'Project IAM Admin' roles
+- **Service Account**: The service account must exist before granting permissions
+- **IAM Policy**: Check for existing IAM bindings that might conflict
+
+**Check service account:**
+```bash
+# List service accounts
+gcloud iam service-accounts list --project=PROJECT_ID
+
+# Check service account details
+gcloud iam service-accounts describe confidential-app-sa@PROJECT_ID.iam.gserviceaccount.com
+
+# Check IAM bindings
+gcloud projects get-iam-policy PROJECT_ID --flatten="bindings[].members" --format="table(bindings.role)" --filter="bindings.members:confidential-app-sa"
+```
+
+**Fix service account issues:**
+```bash
+# Create service account manually
+gcloud iam service-accounts create confidential-app-sa \
+    --display-name="Confidential App Service Account" \
+    --description="Service account for confidential app deployment"
+
+# Grant permissions manually
+gcloud projects add-iam-policy-binding PROJECT_ID \
+    --member="serviceAccount:confidential-app-sa@PROJECT_ID.iam.gserviceaccount.com" \
+    --role="roles/artifactregistry.reader"
+
+gcloud projects add-iam-policy-binding PROJECT_ID \
+    --member="serviceAccount:confidential-app-sa@PROJECT_ID.iam.gserviceaccount.com" \
+    --role="roles/container.nodeServiceAccount"
+```
+
+**Required roles for setup:**
+- `Service Account Admin` - to create service accounts
+- `Project IAM Admin` - to grant IAM permissions
+- `Kubernetes Engine Admin` - to manage GKE clusters
+- `Artifact Registry Admin` - to manage repositories
+
+#### Terraform Conflicts
+If you get "already exists" errors with Terraform:
+- **State mismatch**: Terraform state doesn't match actual resources
+- **Mixed deployment**: Resources created by both gcloud and Terraform
+- **Incomplete teardown**: Terraform state wasn't cleaned up properly
+
+**Fix Terraform conflicts:**
+```bash
+# Clean up Terraform state manually
+cd terraform
+terraform destroy -auto-approve -var="project_id=PROJECT_ID" -var="region=us-central1"
+rm -f terraform.tfstate terraform.tfstate.backup
+cd ..
+
+# Or run complete teardown
+./scripts/teardown.sh
+```
+
+**Prevent conflicts:**
+- Use either gcloud OR Terraform, not both
+- Always run teardown before redeploying
+- Check for existing resources before deployment
 
 
 

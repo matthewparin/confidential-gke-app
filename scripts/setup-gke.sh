@@ -271,46 +271,152 @@ gcloud artifacts repositories create $REPO_NAME \
 
 # Create service account for the application
 echo "👤 Creating service account..."
-gcloud iam service-accounts create $SERVICE_ACCOUNT_NAME \
-    --display-name="Confidential App Service Account" \
-    --description="Service account for confidential app deployment" \
-    --quiet || echo "Service account already exists"
+if gcloud iam service-accounts describe "$SERVICE_ACCOUNT_NAME@$PROJECT_ID.iam.gserviceaccount.com" --project="$PROJECT_ID" >/dev/null 2>&1; then
+    echo "✅ Service account $SERVICE_ACCOUNT_NAME already exists"
+else
+    echo "🏗️  Creating new service account: $SERVICE_ACCOUNT_NAME"
+    if gcloud iam service-accounts create "$SERVICE_ACCOUNT_NAME" \
+        --display-name="Confidential App Service Account" \
+        --description="Service account for confidential app deployment" \
+        --project="$PROJECT_ID"; then
+        echo "✅ Service account created successfully"
+    else
+        echo "❌ Failed to create service account"
+        echo "💡 This might be due to insufficient permissions"
+        echo "   You need 'Service Account Admin' role"
+        exit 1
+    fi
+fi
 
 # Grant Artifact Registry Reader role
 echo "🔐 Granting Artifact Registry permissions..."
-gcloud projects add-iam-policy-binding $PROJECT_ID \
+if gcloud projects add-iam-policy-binding "$PROJECT_ID" \
     --member="serviceAccount:$SERVICE_ACCOUNT_NAME@$PROJECT_ID.iam.gserviceaccount.com" \
-    --role="roles/artifactregistry.reader"
+    --role="roles/artifactregistry.reader"; then
+    echo "✅ Artifact Registry permissions granted"
+else
+    echo "❌ Failed to grant Artifact Registry permissions"
+    echo "💡 This might be due to insufficient permissions"
+    echo "   You need 'Project IAM Admin' role"
+    exit 1
+fi
 
 # Grant GKE Node Service Account permissions
 echo "🔐 Granting GKE permissions..."
-gcloud projects add-iam-policy-binding $PROJECT_ID \
+if gcloud projects add-iam-policy-binding "$PROJECT_ID" \
     --member="serviceAccount:$SERVICE_ACCOUNT_NAME@$PROJECT_ID.iam.gserviceaccount.com" \
-    --role="roles/container.nodeServiceAccount"
+    --role="roles/container.nodeServiceAccount"; then
+    echo "✅ GKE permissions granted"
+else
+    echo "❌ Failed to grant GKE permissions"
+    echo "💡 This might be due to insufficient permissions"
+    echo "   You need 'Project IAM Admin' role"
+    exit 1
+fi
+
+# Verify service account exists and has proper permissions
+echo "🔍 Verifying service account setup..."
+if gcloud iam service-accounts describe "$SERVICE_ACCOUNT_NAME@$PROJECT_ID.iam.gserviceaccount.com" --project="$PROJECT_ID" >/dev/null 2>&1; then
+    echo "✅ Service account verification successful"
+else
+    echo "❌ Service account verification failed"
+    echo "💡 The service account was not created properly"
+    exit 1
+fi
 
 # Create GKE cluster if it doesn't exist
 echo "🏗️  Setting up GKE cluster..."
 if gcloud container clusters describe "$CLUSTER_NAME" --region="$REGION" --project="$PROJECT_ID" >/dev/null 2>&1; then
     echo "✅ Cluster $CLUSTER_NAME already exists"
 else
+    # Check quota before creating cluster
+    echo "🔍 Checking quota limits..."
+    echo "💡 Note: GKE clusters require significant quota for SSD storage and compute resources"
+    echo "   If creation fails, you may need to request quota increase"
+    echo ""
     echo "🏗️  Creating new GKE cluster: $CLUSTER_NAME"
+    
+    # Check quota before creating cluster
+    echo "🔍 Checking regional quota..."
+    if gcloud compute regions describe "$REGION" --project="$PROJECT_ID" >/dev/null 2>&1; then
+        echo "✅ Region $REGION is available"
+    else
+        echo "❌ Region $REGION is not available"
+        exit 1
+    fi
+    
+    # Try to create cluster with reduced resource requirements
     if gcloud container clusters create "$CLUSTER_NAME" \
         --region="$REGION" \
         --project="$PROJECT_ID" \
-        --num-nodes=2 \
+        --num-nodes=1 \
         --enable-autoscaling \
         --min-nodes=1 \
-        --max-nodes=5 \
+        --max-nodes=3 \
         --machine-type=e2-standard-2 \
+        --disk-size=50 \
+        --disk-type=pd-standard \
         --enable-identity-service \
         --workload-pool="$PROJECT_ID.svc.id.goog" \
         --quiet; then
         echo "✅ GKE cluster created successfully"
     else
-        echo "❌ Failed to create GKE cluster"
-        echo "💡 This might be due to insufficient permissions or quota limits"
-        echo "   Check your GKE quota and permissions"
-        exit 1
+        echo "❌ Failed to create GKE cluster with standard settings"
+        echo "💡 Trying with minimal settings..."
+        
+        # Try with even more minimal settings
+        if gcloud container clusters create "$CLUSTER_NAME" \
+            --region="$REGION" \
+            --project="$PROJECT_ID" \
+            --num-nodes=1 \
+            --machine-type=e2-micro \
+            --disk-size=20 \
+            --disk-type=pd-standard \
+            --enable-identity-service \
+            --workload-pool="$PROJECT_ID.svc.id.goog" \
+            --quiet; then
+            echo "✅ GKE cluster created successfully with minimal settings"
+        else
+            echo "❌ Failed to create GKE cluster even with minimal settings"
+            echo ""
+            echo "🔧 Troubleshooting steps:"
+            echo "1. Check your quota limits:"
+            echo "   https://console.cloud.google.com/iam-admin/quotas?usage=USED&project=$PROJECT_ID"
+            echo ""
+            echo "2. Request quota increase for:"
+            echo "   - SSD_TOTAL_GB (currently 400GB, need at least 600GB)"
+            echo "   - CPUS (for compute resources)"
+            echo ""
+            echo "3. Or try a different region:"
+            echo "   gcloud compute regions list --filter='name~us-'"
+            echo ""
+            echo "4. Use an existing cluster instead"
+            echo ""
+            read -p "Would you like to try a different region? (y/n): " try_different_region
+            if [[ $try_different_region =~ ^[Yy]$ ]]; then
+                echo "🔄 Trying with region us-west1..."
+                REGION="us-west1"
+                if gcloud container clusters create "$CLUSTER_NAME" \
+                    --region="$REGION" \
+                    --project="$PROJECT_ID" \
+                    --num-nodes=1 \
+                    --machine-type=e2-standard-2 \
+                    --disk-size=50 \
+                    --disk-type=pd-standard \
+                    --enable-identity-service \
+                    --workload-pool="$PROJECT_ID.svc.id.goog" \
+                    --quiet; then
+                    echo "✅ GKE cluster created successfully in $REGION"
+                else
+                    echo "❌ Failed to create cluster in $REGION as well"
+                    echo "💡 Please request quota increase or use an existing cluster"
+                    exit 1
+                fi
+            else
+                echo "💡 Please request quota increase or use an existing cluster"
+                exit 1
+            fi
+        fi
     fi
 fi
 
