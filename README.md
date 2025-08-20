@@ -135,6 +135,17 @@ curl "http://${EXTERNAL_IP}/api/v1/health"
 ./scripts/teardown.sh
 ```
 
+This script will:
+- Delete all Kubernetes resources (deployments, services, service accounts)
+- Remove Docker images (both local and remote)
+- Delete the GKE cluster
+- Remove the service account
+- Delete the Artifact Registry repository
+- Clean up local configuration files
+- Verify all resources have been removed
+
+**⚠️ Warning:** This will permanently delete all resources created by this project.
+
 ---
 
 ## Troubleshooting
