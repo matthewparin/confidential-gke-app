@@ -82,19 +82,12 @@ The project uses a dynamic configuration system that automatically manages your 
 ./scripts/setup-gke.sh
 ```
 
-This script will:
-1. **Check authentication and permissions** for Google Cloud
-2. **Create a new project** (or use existing) with proper access
-3. **Automatically enable billing** using available billing accounts
-4. **Enable all necessary APIs** for the project
-5. **Configure project ID** for the session
-
 **View current configuration:**
 ```bash
 ./scripts/show-config.sh
 ```
 
-**Change project ID:**
+**If needed, change project ID:**
 ```bash
 rm .project-config
 ./scripts/setup-gke.sh
@@ -105,17 +98,22 @@ rm .project-config
 ./scripts/deploy.sh
 ```
 
-This script will:
-6. **Containerize the Python application** with Docker
-7. **Build the image** and verify it works locally
-8. **Create Google Artifact Registry Repository** and configure Docker authentication
-9. **Verify fully-qualified image name** (registry location, projectID, repository name, image name)
-10. **Push the image** to Google Artifact Registry
-11. **Define infrastructure requirements** in Terraform (if available)
-12. **Plan and deploy Terraform** (or use gcloud for infrastructure)
-13. **Deploy containerized application** with Kubernetes to create pods
-14. **Apply the service** to create the load balancer
-15. **Get external IP** and test the application with curl
+This scripts will:
+1. **Check authentication and permissions** for Google Cloud  
+2. **Create a new project** (or use existing) with proper access  
+3. **Automatically enable billing** using available billing accounts  
+4. **Enable all necessary APIs** for the project  
+5. **Configure project ID** for the session  
+6. **Containerize the Python application** with Docker  
+7. **Build the image** and verify it works locally  
+8. **Create Google Artifact Registry Repository** and configure Docker authentication  
+9. **Verify fully-qualified image name** (registry location, projectID, repository name, image name)  
+10. **Push the image** to Google Artifact Registry  
+11. **Define infrastructure requirements** in Terraform (if available)  
+12. **Plan and deploy Terraform** (or use gcloud for infrastructure)  
+13. **Deploy containerized application** with Kubernetes to create pods  
+14. **Apply the service** to create the load balancer  
+15. **Get external IP** and test the application with curl  
 
 ### 4) Access the Application
 The deployment script will automatically provide you with the external IP and test the application. You can also manually check:
@@ -135,7 +133,7 @@ curl "http://${EXTERNAL_IP}/api/v1/health"
 ./scripts/teardown.sh
 ```
 
-This script will:
+This teardown script will:
 - Delete all Kubernetes resources (deployments, services, service accounts)
 - Remove Docker images (both local and remote)
 - Delete the GKE cluster
@@ -144,7 +142,7 @@ This script will:
 - Clean up local configuration files
 - Verify all resources have been removed
 
-**⚠️ Warning:** This will permanently delete all resources created by this project.
+**Warning:** This will permanently delete all resources created by this project.
 
 ---
 
