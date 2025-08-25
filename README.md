@@ -62,19 +62,19 @@ A modern DevOps workflow enables a repeatable, auditable, and secure deployment 
 
 This project follows a comprehensive 15-step deployment process to ensure everything works correctly:
 
-#### **Step 0: Prerequisites Check**
+### Step 0) Prerequisites Check**
 ```bash
 # Check all requirements before starting
 ./scripts/check-prerequisites.sh
 ```
 
-#### **Step 1: Clone the Repository**
+### Step 1) Clone the Repository**
 ```bash
 git clone
 cd confidential-gke-app
 ```
 
-#### **Step 2: Configure GCP Project**
+### Step 2) Configure GCP Project**
 The project uses a dynamic configuration system that automatically manages your GCP project ID.
 
 **First time setup:**
@@ -93,7 +93,7 @@ rm .project-config
 ./scripts/setup-gke.sh
 ```
 
-#### **Step 3: Deploy the Application**
+### Step 3) Deploy the Application**
 ```bash
 ./scripts/deploy.sh
 ```
@@ -115,7 +115,7 @@ This scripts will:
 14. **Apply the service** to create the load balancer  
 15. **Get external IP** and test the application with curl  
 
-### 4) Access the Application
+### Step 4) Access the Application
 The deployment script will automatically provide you with the external IP and test the application. You can also manually check:
 
 ```bash
@@ -127,7 +127,7 @@ export EXTERNAL_IP=$(kubectl get service confidential-app-service -o jsonpath='{
 curl "http://${EXTERNAL_IP}/api/v1/health"
 ```
 
-### 5) Clean Up
+### Step 5) Clean Up
 ```bash
 # Complete teardown of all resources
 ./scripts/teardown.sh
